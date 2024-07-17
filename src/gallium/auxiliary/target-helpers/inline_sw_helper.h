@@ -79,6 +79,7 @@ sw_screen_create_named(struct sw_winsys *winsys, const char *driver)
          struct pipe_screen_config dummy_cfg = { NULL, NULL };
          screen = panfrost_create_screen(kbase_device_fd, &dummy_cfg, NULL);
       }
+   }
 #endif
 
    return screen ? debug_screen_wrap(screen) : NULL;

@@ -6,12 +6,12 @@ Subject: [PATCH] PojavLauncher patches
 Thanks @SolDev69!
 ---
  src/android_stub/meson.build                  |  2 +-
- .../target-helpers/inline_sw_helper.h         | 19 +++++++
+ .../target-helpers/inline_sw_helper.h         | 20 ++++++++
  src/gallium/drivers/panfrost/pan_disk_cache.c | 20 +------
  src/gallium/targets/osmesa/meson.build        |  4 +-
  src/util/os_misc.c                            | 53 -------------------
  src/util/perf/cpu_trace.h                     | 13 -----
- 6 files changed, 23 insertions(+), 88 deletions(-)
+ 6 files changed, 24 insertions(+), 88 deletions(-)
 
 diff --git a/src/android_stub/meson.build b/src/android_stub/meson.build
 index 6097ae8e..0e3f27bc 100644
@@ -64,6 +64,7 @@ index ddb67b3a..15ab51f6 100644
 +         struct pipe_screen_config dummy_cfg = { NULL, NULL };
 +         screen = panfrost_create_screen(kbase_device_fd, &dummy_cfg, NULL);
 +      }
++   }
 +#endif
 +
     return screen ? debug_screen_wrap(screen) : NULL;
