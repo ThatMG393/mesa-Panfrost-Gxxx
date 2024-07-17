@@ -1,0 +1,219 @@
+From 6e720af439d840360c57e98483b9085de7fa5ef0 Mon Sep 17 00:00:00 2001
+From: ThatMG393 <thatmg393@gmail.com>
+Date: Wed, 17 Jul 2024 17:56:55 +0800
+Subject: [PATCH] PojavLauncher patches
+
+Thanks @SolDev69!
+---
+ src/android_stub/meson.build                  |  2 +-
+ .../target-helpers/inline_sw_helper.h         | 19 +++++++
+ src/gallium/drivers/panfrost/pan_disk_cache.c | 20 +------
+ src/gallium/targets/osmesa/meson.build        |  4 +-
+ src/util/os_misc.c                            | 53 -------------------
+ src/util/perf/cpu_trace.h                     | 13 -----
+ 6 files changed, 23 insertions(+), 88 deletions(-)
+
+diff --git a/src/android_stub/meson.build b/src/android_stub/meson.build
+index 6097ae8e..0e3f27bc 100644
+--- a/src/android_stub/meson.build
++++ b/src/android_stub/meson.build
+@@ -1,6 +1,6 @@
+ if with_android_stub
+   stub_libs = []
+-  lib_names = ['cutils', 'hardware', 'log', 'nativewindow', 'sync']
++  lib_names = ['hardware', 'log', 'nativewindow', 'sync']
+ 
+   if with_libbacktrace
+     lib_names += ['backtrace']
+diff --git a/src/gallium/auxiliary/target-helpers/inline_sw_helper.h b/src/gallium/auxiliary/target-helpers/inline_sw_helper.h
+index ddb67b3a..15ab51f6 100644
+--- a/src/gallium/auxiliary/target-helpers/inline_sw_helper.h
++++ b/src/gallium/auxiliary/target-helpers/inline_sw_helper.h
+@@ -2,6 +2,10 @@
+ #ifndef INLINE_SW_HELPER_H
+ #define INLINE_SW_HELPER_H
+ 
++#include <stdio.h>
++#include <fcntl.h>
++#include <errno.h>
++
+ #include "util/compiler.h"
+ #include "pipe/p_screen.h"
+ #include "util/u_debug.h"
+@@ -29,6 +33,10 @@
+ #include "d3d12/d3d12_public.h"
+ #endif
+ 
++#ifdef GALLIUM_PANFROST
++#include "panfrost/pan_public.h"
++#endif
++
+ static inline struct pipe_screen *
+ sw_screen_create_named(struct sw_winsys *winsys, const char *driver)
+ {
+@@ -62,6 +70,17 @@ sw_screen_create_named(struct sw_winsys *winsys, const char *driver)
+       screen = d3d12_create_dxcore_screen(winsys, NULL);
+ #endif
+ 
++#if defined(GALLIUM_PANFROST)
++   if (screen == NULL && strcmp(driver, "panfrost") == 0) {
++      int kbase_device_fd = open("/dev/mali0", O_RDWR | O_CLOEXEC | O_NONBLOCK);
++      if (kbase_device_fd == -1) { 
++         printf("PAN_OSMESA: Failed to open kbase device: %s", strerror(errno));
++      } else {
++         struct pipe_screen_config dummy_cfg = { NULL, NULL };
++         screen = panfrost_create_screen(kbase_device_fd, &dummy_cfg, NULL);
++      }
++#endif
++
+    return screen ? debug_screen_wrap(screen) : NULL;
+ }
+ 
+diff --git a/src/gallium/drivers/panfrost/pan_disk_cache.c b/src/gallium/drivers/panfrost/pan_disk_cache.c
+index 382c5880..7cf6d030 100644
+--- a/src/gallium/drivers/panfrost/pan_disk_cache.c
++++ b/src/gallium/drivers/panfrost/pan_disk_cache.c
+@@ -158,23 +158,5 @@ panfrost_disk_cache_retrieve(struct disk_cache *cache,
+ void
+ panfrost_disk_cache_init(struct panfrost_screen *screen)
+ {
+-#ifdef ENABLE_SHADER_CACHE
+-   const char *renderer = screen->base.get_name(&screen->base);
+-
+-   const struct build_id_note *note =
+-      build_id_find_nhdr_for_addr(panfrost_disk_cache_init);
+-   assert(note && build_id_length(note) == 20); /* sha1 */
+-
+-   const uint8_t *id_sha1 = build_id_data(note);
+-   assert(id_sha1);
+-
+-   char timestamp[41];
+-   _mesa_sha1_format(timestamp, id_sha1);
+-
+-   /* Consider any flags affecting the compile when caching */
+-   uint64_t driver_flags = screen->dev.debug;
+-   driver_flags |= ((uint64_t)(midgard_debug | bifrost_debug) << 32);
+-
+-   screen->disk_cache = disk_cache_create(renderer, timestamp, driver_flags);
+-#endif
++   printf("panfrost_disk_cache_init: de-implemented.");
+ }
+diff --git a/src/gallium/targets/osmesa/meson.build b/src/gallium/targets/osmesa/meson.build
+index d16e7858..cc91e381 100644
+--- a/src/gallium/targets/osmesa/meson.build
++++ b/src/gallium/targets/osmesa/meson.build
+@@ -55,10 +55,10 @@ libosmesa = shared_library(
+     libmesa, libgallium, libws_null, osmesa_link_with,
+   ],
+   dependencies : [
+-    dep_ws2_32, dep_selinux, dep_thread, dep_clock, dep_unwind, driver_swrast
++    dep_ws2_32, dep_selinux, dep_thread, dep_clock, dep_unwind, driver_swrast, driver_panfrost
+   ],
+   name_prefix : host_machine.system() == 'windows' ? '' : [],  # otherwise mingw will create libosmesa.dll
+-  soversion : host_machine.system() == 'windows' ? '' : '8',
++  soversion : '', # host_machine.system() == 'windows' ? '' : '8',
+   version : '8.0.0',
+   darwin_versions : '9.0.0',
+   install : true,
+diff --git a/src/util/os_misc.c b/src/util/os_misc.c
+index 72615774..7df95a1c 100644
+--- a/src/util/os_misc.c
++++ b/src/util/os_misc.c
+@@ -56,7 +56,6 @@
+ #  define LOG_TAG "MESA"
+ #  include <unistd.h>
+ #  include <log/log.h>
+-#  include <cutils/properties.h>
+ #elif DETECT_OS_LINUX || DETECT_OS_CYGWIN || DETECT_OS_SOLARIS || DETECT_OS_HURD || DETECT_OS_MANAGARM
+ #  include <unistd.h>
+ #elif DETECT_OS_OPENBSD || DETECT_OS_FREEBSD
+@@ -128,53 +127,6 @@ os_log_message(const char *message)
+ #endif
+ }
+ 
+-#if DETECT_OS_ANDROID
+-#  include <ctype.h>
+-#  include "c11/threads.h"
+-
+-/**
+- * Get an option value from android's property system, as a fallback to
+- * getenv() (which is generally less useful on android due to processes
+- * typically being forked from the zygote.
+- *
+- * The option name used for getenv is translated into a property name
+- * by:
+- *
+- *  1) convert to lowercase
+- *  2) replace '_' with '.'
+- *  3) if necessary, prepend "mesa."
+- *
+- * For example:
+- *  - MESA_EXTENSION_OVERRIDE -> mesa.extension.override
+- *  - GALLIUM_HUD -> mesa.gallium.hud
+- *
+- */
+-static char *
+-os_get_android_option(const char *name)
+-{
+-   static thread_local char os_android_option_value[PROPERTY_VALUE_MAX];
+-   char key[PROPERTY_KEY_MAX];
+-   char *p = key, *end = key + PROPERTY_KEY_MAX;
+-   /* add "mesa." prefix if necessary: */
+-   if (strstr(name, "MESA_") != name)
+-      p += strlcpy(p, "mesa.", end - p);
+-   p += strlcpy(p, name, end - p);
+-   for (int i = 0; key[i]; i++) {
+-      if (key[i] == '_') {
+-         key[i] = '.';
+-      } else {
+-         key[i] = tolower(key[i]);
+-      }
+-   }
+-
+-   int len = property_get(key, os_android_option_value, NULL);
+-   if (len > 1) {
+-      return os_android_option_value;
+-   }
+-   return NULL;
+-}
+-#endif
+-
+ #if DETECT_OS_WINDOWS
+ 
+ /* getenv doesn't necessarily reflect changes to the environment
+@@ -195,11 +147,6 @@ const char *
+ os_get_option(const char *name)
+ {
+    const char *opt = getenv(name);
+-#if DETECT_OS_ANDROID
+-   if (!opt) {
+-      opt = os_get_android_option(name);
+-   }
+-#endif
+    return opt;
+ }
+ 
+diff --git a/src/util/perf/cpu_trace.h b/src/util/perf/cpu_trace.h
+index 75db0f7b..4c37f143 100644
+--- a/src/util/perf/cpu_trace.h
++++ b/src/util/perf/cpu_trace.h
+@@ -29,19 +29,6 @@
+          util_perfetto_trace_end();                                          \
+    } while (0)
+ 
+-/* NOTE: for now disable atrace for C++ to workaround a ndk bug with ordering
+- * between stdatomic.h and atomic.h.  See:
+- *
+- *   https://github.com/android/ndk/issues/1178
+- */
+-#elif DETECT_OS_ANDROID && !defined(__cplusplus)
+-
+-#include <cutils/trace.h>
+-
+-#define _MESA_TRACE_BEGIN(name)                                              \
+-   atrace_begin(ATRACE_TAG_GRAPHICS, name)
+-#define _MESA_TRACE_END() atrace_end(ATRACE_TAG_GRAPHICS)
+-
+ #else
+ 
+ #define _MESA_TRACE_BEGIN(name)
