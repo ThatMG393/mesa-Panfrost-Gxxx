@@ -2,6 +2,10 @@
 #ifndef INLINE_SW_HELPER_H
 #define INLINE_SW_HELPER_H
 
+#include <stdio.h>
+#include <fcntl.h>
+#include <errno.h>
+
 #include "util/compiler.h"
 #include "pipe/p_screen.h"
 #include "util/u_debug.h"
@@ -27,6 +31,10 @@
 
 #ifdef GALLIUM_D3D12
 #include "d3d12/d3d12_public.h"
+#endif
+
+#ifdef GALLIUM_PANFROST
+#include "panfrost/pan_public.h"
 #endif
 
 static inline struct pipe_screen *
@@ -60,6 +68,17 @@ sw_screen_create_named(struct sw_winsys *winsys, const char *driver)
 #if defined(GALLIUM_D3D12)
    if (screen == NULL && strcmp(driver, "d3d12") == 0)
       screen = d3d12_create_dxcore_screen(winsys, NULL);
+#endif
+
+#if defined(GALLIUM_PANFROST)
+   if (screen == NULL && strcmp(driver, "panfrost") == 0) {
+      int kbase_device_fd = open("/dev/mali0", O_RDWR | O_CLOEXEC | O_NONBLOCK);
+      if (kbase_device_fd == -1) { 
+         printf("PAN_OSMESA: Failed to open kbase device: %s", strerror(errno));
+      } else {
+         struct pipe_screen_config dummy_cfg = { NULL, NULL };
+         screen = panfrost_create_screen(kbase_device_fd, &dummy_cfg, NULL);
+      }
 #endif
 
    return screen ? debug_screen_wrap(screen) : NULL;
