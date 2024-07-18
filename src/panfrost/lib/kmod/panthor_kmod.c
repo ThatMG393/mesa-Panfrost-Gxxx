@@ -9,6 +9,7 @@
 #include <string.h>
 #include <xf86drm.h>
 
+#include "util/detect_os.h"
 #include "util/hash_table.h"
 #include "util/libsync.h"
 #include "util/macros.h"
@@ -21,6 +22,11 @@
 #include "drm-uapi/panthor_drm.h"
 
 #include "pan_kmod_backend.h"
+
+#ifdef DETECT_OS_ANDROID
+#include <android/sync.h>
+#include <libsync.h>
+#endif
 
 const struct pan_kmod_ops panthor_kmod_ops;
 

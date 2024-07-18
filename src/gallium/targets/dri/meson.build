@@ -135,7 +135,7 @@ endforeach
 
 # This only works on Unix-like oses, which is probably fine for dri
 prog_ln = find_program('ln', required : false)
-if prog_ln.found()
+if false 
   devenv.set('LIBGL_DRIVERS_PATH', meson.current_build_dir())
 
   foreach d : gallium_dri_drivers

@@ -1,0 +1,26 @@
+[constants]
+prefix = '/data/data/com.termux/files/usr/bin/'
+
+toolchain_arch = 'aarch64-linux-androideabi'
+toolchain_path = prefix + toolchain_arch
+
+[binaries]
+ar = toolchain_path + '-ar'
+c = [prefix + 'bin/ccache', toolchain_path + '-clang']
+cpp = [prefix + 'bin/ccache', toolchain_path + '-clang++']
+c_ld = toolchain_path + '-ld'
+cpp_ld = toolchain_path + '-ld'
+strip = toolchain_path + '-strip'
+pkg-config = ['env', 'PKG_CONFIG_LIBDIR=.:' + prefix + 'lib/pkgconfig', prefix + 'bin/pkg-config']
+
+[built-in options]
+c_args = ['-O3', '--target=aarch64-linux-androideabi30', '-Wno-error=implicit-function-declaration']
+c_link_args = ['-l:libandroid-shmem.a', '-llog', '-lsync']
+cpp_args = ['-O3', '--target=aarch64-linux-androideabi30', '-Wno-error=implicit-function-declaration']
+cpp_link_args = ['-l:libandroid-shmem.a', '-llog', '-lsync']
+
+[host_machine]
+system = 'linux'
+cpu_family = 'arm'
+cpu = 'armv8'
+endian = 'little' # This assumes you have a litte-endian CPU, change if not

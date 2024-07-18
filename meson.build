@@ -37,7 +37,11 @@ project(
 cc = meson.get_compiler('c')
 cpp = meson.get_compiler('cpp')
 
-sizeof_pointer = meson.get_compiler('c', native : true).sizeof('void*').to_string()
+if meson.is_cross_build()
+  sizeof_pointer = meson.get_compiler('c', native : true).sizeof('void*').to_string()
+else
+  sizeof_pointer = cc.sizeof('void*').to_string()
+endif
 
 null_dep = dependency('', required : false)
 

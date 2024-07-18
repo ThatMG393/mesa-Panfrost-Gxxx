@@ -1,0 +1,26 @@
+diff --git a/src/vrend_decode.c b/src/vrend_decode.c
+index 70c737a..afe5459 100644
+--- a/src/vrend_decode.c
++++ b/src/vrend_decode.c
+@@ -2021,7 +2021,7 @@ static void dump_command_stream_to_file(const void *buffer, size_t size)
+    uint64_t hash = XXH64(buffer, size, 0);
+    char fname[64];
+    snprintf(fname,
+-            sizeof(fname), "buffer_%016lx.seed",  hash);
++            sizeof(fname), "buffer_%016llx.seed",  hash);
+    FILE *f = fopen(fname, "wb");
+    if (f) {
+       fwrite(buffer, 1, size, f);
+diff --git a/vtest/vtest_protocol.h b/vtest/vtest_protocol.h
+index 0869f0d..f2975af 100644
+--- a/vtest/vtest_protocol.h
++++ b/vtest/vtest_protocol.h
+@@ -25,7 +25,7 @@
+ #ifndef VTEST_PROTOCOL
+ #define VTEST_PROTOCOL
+ 
+-#define VTEST_DEFAULT_SOCKET_NAME "/tmp/.virgl_test"
++#define VTEST_DEFAULT_SOCKET_NAME "/data/data/com.termux/files/usr/tmp/.virgl_test"
+ 
+ #define VTEST_PROTOCOL_VERSION 3
+ 

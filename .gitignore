@@ -4,3 +4,7 @@
 *.out
 /build
 .venv/
+
+build-termux
+termux/deps/drm
+termux/needers/virglrenderer
